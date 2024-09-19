@@ -619,7 +619,7 @@ def process_file(file_path):
             print(f"Failed to fill field {field_name} with text '{text}' using JavaScript: {e}")
 
 
-    df = pd.read_excel(file_path)
+    df = pd.read_excel(file_path,dtype={'GPRN': str, 'Mobile Number': str,'MPRN':str,'Day':str,'Month':str, 'Year':str, 'Gas Rate':str,'electricity_day_meter':str,'electricity_night_meter':str,'electricity_meter':str})
 
     for index, row in df.iterrows():
         try:
@@ -756,8 +756,53 @@ def process_file(file_path):
                         print(f"No Radio label 'Outside' clicked using JavaScript: {e}")
 
             elif row['Category'] == 'Electricity':
+                try:
+                    # Try to find and fill the 24 Hour meter field
+                    try:
+                        # Locate the 24 Hour input field by its associated label "24 Hour"
+                        hour_24_input = WebDriverWait(driver, 5).until(
+                            EC.presence_of_element_located((By.XPATH, "//span[contains(text(), '24 Hour')]/following::input[@placeholder='Eg.5555']"))
+                        )
+                        WebDriverWait(driver, 5).until(EC.element_to_be_clickable(hour_24_input))
+                        hour_24_input.clear()
+                        hour_24_input.send_keys(row['electricity_meter'])
+                        print(f"Typed value '{row['electricity_meter']}' into 24 Hour electricity meter field.")
+                    except TimeoutException:
+                        print("24 Hour meter input field not found, skipping. Checking for Day and Night meters...")
+
+                        # Proceed to check for Day and Night fields if 24 Hour is not found
+                        try:
+                            # Locate the Day input field by its associated label "Day"
+                            day_input = WebDriverWait(driver, 5).until(
+                                EC.presence_of_element_located((By.XPATH, "//span[contains(text(), 'Day')]/following::input[@placeholder='Eg.5555']"))
+                            )
+                            WebDriverWait(driver, 5).until(EC.element_to_be_clickable(day_input))
+                            day_input.clear()
+                            day_input.send_keys(row['electricity_day_meter'])
+                            print(f"Typed value '{row['electricity_day_meter']}' into Day electricity meter field.")
+                        except TimeoutException:
+                            print("Day meter input field not found, skipping.")
+
+                        # Locate the Night input field by its associated label "Night"
+                        try:
+                            night_input = WebDriverWait(driver, 5).until(
+                                EC.presence_of_element_located((By.XPATH, "//span[contains(text(), 'Night')]/following::input[@placeholder='Eg.5555']"))
+                            )
+                            WebDriverWait(driver, 5).until(EC.element_to_be_clickable(night_input))
+                            night_input.clear()
+                            night_input.send_keys(row['electricity_night_meter'])
+                            print(f"Typed value '{row['electricity_night_meter']}' into Night electricity meter field.")
+                        except TimeoutException:
+                            print("Night meter input field not found, skipping.")
+                    
+                except Exception as e:
+                    print(f"Error while filling electricity meter readings: {e}")
+
+
+                # Always check the meter location
                 if row['Electricity_meter_location'] == 'Outside':
                     try:
+                        # Always attempt to click the 'Outside' radio button
                         radio_label = WebDriverWait(driver, 10).until(
                             EC.presence_of_element_located((By.XPATH, "//span[@class='button__radio--message' and text()='Outside']"))
                         )
@@ -848,9 +893,12 @@ def process_file(file_path):
             time.sleep(1)
             debit_authorisation_button_xpath = "//button[@type='button' and @id='debit_authorisation_button' and contains(@class, 'button--largeprimary') and text()='Okay']"
             click_element_with_js(driver, debit_authorisation_button_xpath)
+            
+            click_next = "//input[@id='review_submit' and @type='submit' and @value='All good. Complete my switch to Energia']"
+            click_element_with_js(driver, click_next)
             passed_rows.append(row.to_dict())
-            # click_next = "//input[@id='review_submit' and @type='submit' and @value='All good. Complete my switch to Energia']"
-            # click_element_with_js(driver, click_next)
+            time.sleep(5)
+            
             
         except Exception as e:
             print(f"Failed to process row {index}: {e}")
